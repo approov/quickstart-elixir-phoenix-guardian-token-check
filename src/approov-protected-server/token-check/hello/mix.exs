@@ -20,7 +20,7 @@ defmodule Hello.MixProject do
   def application do
     [
       mod: {Hello.Application, []},
-      extra_applications: [:logger, :runtime_tools, :dotenv]
+      extra_applications: [:logger, :runtime_tools]
     ]
   end
 
@@ -38,7 +38,6 @@ defmodule Hello.MixProject do
       {:telemetry_poller, "~> 0.4"},
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
-      {:dotenv, "~> 3.0"},
       {:guardian_phoenix, "~> 2.0"}
     ]
   end

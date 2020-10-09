@@ -42,32 +42,34 @@ defmodule HelloWeb.ApproovTokenPlug do
     with [approov_token | _] <- Plug.Conn.get_req_header(conn, "approov-token"),
          {:ok, approov_token_claims} <- decode_and_verify(approov_token),
          true <- _has_expiration_claim(approov_token_claims) do
-      IO.inspect(approov_token_claims, label: "CLAIMS")
       {:ok, conn, approov_token_claims}
     else
       [] ->
-        Logger.debug("Missing the Approov token header!")
+        # You may want to add some logging here
+        # Logger.debug("Missing the Approov token header!")
         {:error, conn}
 
       {:error, reason} when is_atom(reason) ->
-        Logger.debug(Atom.to_string(reason))
+        # You may want to add some logging here
+        # Logger.debug(Atom.to_string(reason))
         {:error, conn}
 
-      {:error, %ArgumentError{} = error} ->
-        Logger.debug(
-          "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
-        )
+      {:error, %ArgumentError{} = _error} ->
+        # You may want to add some logging here
+        # Logger.debug(
+        #   "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
+        # )
 
-        IO.inspect(error, label: "ERROR")
         {:error, conn}
 
-      {:error, error} ->
-        Logger.debug("Approov token verification failed with an unexpected reason for the error!")
-        IO.inspect(error, label: "ERROR")
+      {:error, _error} ->
+        # You may want to add some logging here
+        # Logger.debug("Approov token verification failed with an unexpected reason for the error!")
         {:error, conn}
 
       false ->
-        Logger.debug("Missing `exp` claim in a valid signed Approov token.")
+        # You may want to add some logging here
+        # Logger.debug("Missing `exp` claim in a valid signed Approov token.")
         {:error, conn}
     end
   end
