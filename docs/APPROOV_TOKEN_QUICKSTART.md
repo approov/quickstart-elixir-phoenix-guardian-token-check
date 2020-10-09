@@ -175,7 +175,7 @@ end
 
 > **NOTE:** When the Approov token validation fails we return a `401` with an empty body, because we don't want to give clues to an attacker about the reason the request failed, and you can go even further by returning a `400`.
 
-Now, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) to the `:api` pipeline on your Phoenix router `lib/your_app_web/router.ex` add:
+Now, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) to the `:api` pipeline on your Phoenix router `lib/your_app_web/router.ex`:
 
 ```elixir
 pipeline :api do
