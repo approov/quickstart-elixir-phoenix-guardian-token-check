@@ -147,7 +147,6 @@ defmodule HelloWeb.ApproovTokenPlug do
         # Logger.debug(
         #   "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
         # )
-
         {:error, conn}
 
       {:error, _error} ->
