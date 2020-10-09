@@ -19,7 +19,7 @@ To lock down your API server to your mobile app. Please read the brief summary i
 
 ## How it works?
 
-The Elixir Phoenix API server is very simple and is defined in the project located at [src/approov-protected-server/token-binding-check/hello](/src/approov-protected-server/token-binding-check/hello). Take a look at the [Approov Plug](/src/approov-protected-server/token-binding-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module, and search for the `_verify_approov_token()` and `_verify_approov_token_binding()` functions to see the simple code for the checks.
+The Elixir Phoenix API server is very simple and is defined in the project located at [src/approov-protected-server/token-binding-check/hello](/src/approov-protected-server/token-binding-check/hello). Take a look at the [Approov Plug](/src/approov-protected-server/token-binding-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module, and search for the `_verify_approov_token/1` and `_verify_approov_token_binding/2` functions to see the simple code for the checks.
 
 For more background on Approov, see the overview in the [README](/README.md#how-it-works) at the root of this repo.
 
