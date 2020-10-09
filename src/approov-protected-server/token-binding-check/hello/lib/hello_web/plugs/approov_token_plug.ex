@@ -13,8 +13,7 @@ defmodule HelloWeb.ApproovTokenPlug do
 
   def call(conn, _options) do
     with {:ok, conn, approov_token_claims} <- _verify_approov_token(conn),
-         {:ok, conn} <- _verify_approov_token_binding(conn, approov_token_claims)
-     do
+         {:ok, conn} <- _verify_approov_token_binding(conn, approov_token_claims) do
       conn
     else
       {:error, conn} ->
@@ -74,34 +73,37 @@ defmodule HelloWeb.ApproovTokenPlug do
     end
   end
 
-  defp _verify_approov_token_binding(conn, %{"pay" => token_binding_claim} = _approov_token_claims) do
-      # We use the Authorization token, but feel free to use another header in
-      # the request. Bear in mind that it needs to be the same header used in the
-      # mobile app to bind the request with the Approov token.
-      with [token_binding_header | _] <- Plug.Conn.get_req_header(conn, "authorization"),
+  defp _verify_approov_token_binding(
+         conn,
+         %{"pay" => token_binding_claim} = _approov_token_claims
+       ) do
+    # We use the Authorization token, but feel free to use another header in
+    # the request. Bear in mind that it needs to be the same header used in the
+    # mobile app to bind the request with the Approov token.
+    with [token_binding_header | _] <- Plug.Conn.get_req_header(conn, "authorization"),
 
-          # We need to hash and base64 encode the token binding header, because that's
-          # how it was included in the Approov token on the mobile app.
-          token_binding_header_encoded <- :crypto.hash(:sha256, token_binding_header) |> Base.encode64(),
+         # We need to hash and base64 encode the token binding header, because that's
+         # how it was included in the Approov token on the mobile app.
+         token_binding_header_encoded <-
+           :crypto.hash(:sha256, token_binding_header) |> Base.encode64(),
+         true <- token_binding_claim === token_binding_header_encoded do
+      {:ok, conn}
+    else
+      [] ->
+        Logger.debug("Missing the Approov token binding header!")
+        {:error, conn}
 
-          true <- token_binding_claim === token_binding_header_encoded
-      do
-        {:ok, conn}
+      {:error, error} ->
+        Logger.debug(
+          "Approov token binding verification failed with an unexpected reason for the error!"
+        )
 
-      else
+        IO.inspect(error, label: "ERROR")
+        {:error, conn}
 
-        [] ->
-          Logger.debug("Missing the Approov token binding header!")
-          {:error, conn}
-
-        {:error, error} ->
-          Logger.debug("Approov token binding verification failed with an unexpected reason for the error!")
-          IO.inspect error, label: "ERROR"
-          {:error, conn}
-
-        false ->
-          Logger.debug("Token binding header not matching with the Approov token.")
-          {:error, conn}
+      false ->
+        Logger.debug("Token binding header not matching with the Approov token.")
+        {:error, conn}
     end
   end
 
