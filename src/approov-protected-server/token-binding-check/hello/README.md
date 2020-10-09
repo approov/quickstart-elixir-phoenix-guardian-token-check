@@ -35,13 +35,7 @@ To run this example you will need to have Elixir and Phoenix installed. If you d
 
 ## Try the Approov Integration Example
 
-First, you need to create the `.env` file. From the `src/approov-protected-server/token-binding-check/hello` folder execute:
-
-```
-cp .env.example .env
-```
-
-Second, you need to set the dummy secret in the `src/approov-protected-server/token-binding-check/hello/.env` file as explained [here](/README.md#the-dummy-secret).
+First, you need to set the dummy secret as explained [here](/README.md#the-dummy-secret).
 
 Next, you need to install the dependencies. From the `src/approov-protected-server/token-binding-check/hello` folder execute:
 
