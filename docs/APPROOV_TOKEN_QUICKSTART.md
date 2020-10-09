@@ -23,7 +23,7 @@ To lock down your API server to your mobile app. Please read the brief summary i
 
 For more background, see the overview in the [README](/README.md#how-it-works) at the root of this repo.
 
-The main functionality for the Approov token check is in the [Approov Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) class. Take a look at the `_verify_approov_token/1` function to see the simple code for the check.
+The main functionality for the Approov token check is in the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) class. Take a look at the `_verify_approov_token/1` function to see the simple code for the check.
 
 [TOC](#toc---table-of-contents)
 
@@ -83,7 +83,7 @@ export APPROOV_BASE64_SECRET=approov_base64_secret_here
 
 To check the Approov token we will use the [ueberauth/guardian](https://github.com/ueberauth/guardian) package.
 
-First, add the [Approov Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) class to your project at `lib/hello_web/plugs/approov_token_plug.ex`:
+First, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) class to your project at `lib/your_app_web/plugs/approov_token_plug.ex`:
 
 ```elixir
 defmodule HelloWeb.ApproovTokenPlug do
@@ -176,7 +176,7 @@ end
 
 > **NOTE:** When the Approov token validation fails we return a `401` with an empty body, because we don't want to give clues to an attacker about the reason the request failed, and you can go even further by returning a `400`.
 
-Now, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) to the `:api` pipeline on your Phoenix router `lib/hello_web/router` add:
+Now, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) to the `:api` pipeline on your Phoenix router `lib/your_app_web/router.ex` add:
 
 ```elixir
 pipeline :api do
