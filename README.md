@@ -55,7 +55,7 @@ You can choose to log JWT verification failures, but we left it out on purpose s
 
 >#### System Clock
 >
->In order to correctly check for the expiration times of the Approov tokens is very important that the Ruby backend server is synchronizing automatically the system clock over the network with an authoritative time source. In Linux this is usually done with a NTP server.
+>In order to correctly check for the expiration times of the Approov tokens is very important that the Phoenix backend server is synchronizing automatically the system clock over the network with an authoritative time source. In Linux this is usually done with a NTP server.
 
 [TOC](#toc---table-of-contents)
 
@@ -79,7 +79,7 @@ git diff --no-index src/approov-protected-server/token-check/hello/lib/hello_web
 
 ## Approov Integration Examples
 
-The code examples for the Approov quickstarts are extracted from this simple [Approov integration examples](/src/approov-protected-server), that you can run from your computer to play around with the Approov integration and gain a better understanding of how simple and easy it is to integrate Approov in a Ruby API server.
+The code examples for the Approov quickstarts are extracted from this simple [Approov integration examples](/src/approov-protected-server), that you can run from your computer to play around with the Approov integration and gain a better understanding of how simple and easy it is to integrate Approov in a Elixir Phoenix API server.
 
 ### Testing with Postman
 
