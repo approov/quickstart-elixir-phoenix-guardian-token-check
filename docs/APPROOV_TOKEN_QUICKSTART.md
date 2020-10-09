@@ -86,7 +86,7 @@ To check the Approov token we will use the [ueberauth/guardian](https://github.c
 First, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module to your project at `lib/your_app_web/plugs/approov_token_plug.ex`:
 
 ```elixir
-defmodule HelloWeb.ApproovTokenPlug do
+defmodule YourAppWeb.ApproovTokenPlug do
   require Logger
 
   ##############################################################################
@@ -187,7 +187,7 @@ pipeline :api do
   # users during peak time or in the event of a DoS attack(We all know the
   # BEAM design allows to cope very well with this scenarios, but best to play
   # in the safe side).
-  plug HelloWeb.ApproovTokenPlug
+  plug YourAppWeb.ApproovTokenPlug
 end
 ```
 

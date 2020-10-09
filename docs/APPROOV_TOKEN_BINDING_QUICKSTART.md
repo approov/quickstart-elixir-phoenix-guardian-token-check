@@ -83,134 +83,158 @@ export APPROOV_BASE64_SECRET=approov_base64_secret_here
 
 To check the Approov token we will use the [ueberauth/guardian](https://github.com/ueberauth/guardian) package.
 
-First, add the [Approov Token Plug](/src/approov-protebinding-cted-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module to your project at `lib/your_app_web/plugs/approov_token_plug.ex`:
+First, add the [Approov Token Plug](/src/approov-protected-server/token-binding-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module to your project at `lib/your_app_web/plugs/approov_token_plug.ex`:
 
 ```elixir
-class ApproovMiddleware
-    def initialize app
-        @app = app
+defmodule YourAppWeb.ApproovTokenPlug do
+  require Logger
 
-        if not ENV['APPROOV_BASE64_SECRET']
-            raise "Missing in the .env file the value for the variable: APPROOV_BASE64_SECRET"
-        end
+  ##############################################################################
+  # Adhere to the Phoenix Module Plugs specification by implementing:
+  #   * init/1
+  #   * call/2
+  #
+  # @link https://hexdocs.pm/phoenix/plug.html#module-plugs
+  ##############################################################################
 
-        @APPROOV_SECRET = Base64.decode64(ENV['APPROOV_BASE64_SECRET'])
+  def init(options), do: options
+
+  def call(conn, _options) do
+    with {:ok, conn, approov_token_claims} <- _verify_approov_token(conn),
+         {:ok, conn} <- _verify_approov_token_binding(conn, approov_token_claims) do
+      conn
+    else
+      {:error, conn} ->
+        conn |> _halt_connection()
     end
+  end
 
-    def call env
-        # Make the code thread safe by duplicating the object
-        dup._call env
-    end
+  ##############################################################################
+  # Inject Guardian functions and implement the required behaviour callbacks:
+  #   * subject_for_token/2
+  #   * resource_from_claims/2
+  #
+  # The required behaviour functions are not necessary in the context of
+  # checking the Approov token, but required to be implemented in order to use
+  # Guardian.
+  ##############################################################################
 
-    def _call env
-        # We return 401 with an empty body because we don't want to give clues
-        # to the attacker about why he is failing the request, and you can go
-        # even further and return a 400.
-        invalid_response = [401, {"Content-Type" => "application/json"}, []]
+  use Guardian, otp_app: :hello
 
-        request = Rack::Request.new env
+  @impl true
+  def subject_for_token(user, _claims), do: {:ok, to_string(user.id)}
 
-        approov_token_claims = verifyApproovToken(request)
+  @impl true
+  def resource_from_claims(claims), do: {:ok, claims["sub"]}
 
-        if not approov_token_claims
-            return invalid_response
-        end
-
-        if not verifyApproovTokenBinding(request, approov_token_claims)
-            return invalid_response
-        end
-
-        # Allow later reuse of the Approov token claims in request life cycle.
-        env["APPROOV_TOKEN_CLAIMS"] = approov_token_claims
-
-        return @app.call(env)
-    end
-
-    def verifyApproovToken request
-        begin
-            approov_token = request.get_header "HTTP_APPROOV_TOKEN"
-
-            if not approov_token
-                # You may want to add some logging here
-                # Rails.logger.debug 'Missing the Approov token header!'
-                return nil
-            end
-
-            options = { algorithm: 'HS256' }
-            approov_token_claims, header = JWT.decode approov_token, @APPROOV_SECRET, true, options
-
-            return approov_token_claims
-
-        rescue JWT::DecodeError => e
-            # You may want to add some logging here
-            # Rails.logger.debug e
-            return nil
-        rescue JWT::ExpiredSignature => e
-            # You may want to add some logging here
-            # Rails.logger.debug e
-            return nil
-        rescue JWT::InvalidIssuerError => e
-            # You may want to add some logging here
-            # Rails.logger.debug e
-            return nil
-        rescue JWT::InvalidIatError => e
-            # You may want to add some logging here
-            # Rails.logger.debug e
-            return nil
-        end
-
+  defp _verify_approov_token(conn) do
+    with [approov_token | _] <- Plug.Conn.get_req_header(conn, "approov-token"),
+         {:ok, approov_token_claims} <- decode_and_verify(approov_token),
+         true <- _has_expiration_claim(approov_token_claims) do
+      {:ok, conn, approov_token_claims}
+    else
+      [] ->
         # You may want to add some logging here
-        # Rails.logger.debug 'Whoops, unknown failure when verifying the Approov token!'
-        return nil
+        # Logger.debug("Missing the Approov token header!")
+        {:error, conn}
+
+      {:error, reason} when is_atom(reason) ->
+        # You may want to add some logging here
+        # Logger.debug(Atom.to_string(reason))
+        {:error, conn}
+
+      {:error, %ArgumentError{} = _error} ->
+        # You may want to add some logging here
+        # Logger.debug(
+        #   "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
+        # )
+        {:error, conn}
+
+      {:error, _error} ->
+        # You may want to add some logging here
+        # Logger.debug("Approov token verification failed with an unexpected reason for the error!")
+        {:error, conn}
+
+      false ->
+        # You may want to add some logging here
+        # Logger.debug("Missing `exp` claim in a valid signed Approov token.")
+        {:error, conn}
     end
+  end
 
-    def verifyApproovTokenBinding request, approov_token_claims
-        # Note that the `pay` claim will, under normal circumstances, be present,
-        # but if the Approov failover system is enabled, then no claim will be
-        # present, and in this case you want to return true, otherwise you will not
-        # be able to benefit from the redundancy afforded by the failover system.
-        if not approov_token_claims['pay']
-            # You may want to add some logging here
-            # Rails.logger.debug 'Missing Approov token binding claim in the Approov token.'
-            return true
-        end
+  defp _verify_approov_token_binding(
+         conn,
+         %{"pay" => token_binding_claim} = _approov_token_claims
+       ) do
+    # We use the Authorization token, but feel free to use another header in
+    # the request. Bear in mind that it needs to be the same header used in the
+    # mobile app to bind the request with the Approov token.
+    with [token_binding_header | _] <- Plug.Conn.get_req_header(conn, "authorization"),
 
-        # We use the Authorization token, but feel free to use another header in
-        # the request. Beqar in mind that it needs to be the same header used in the
-        # mobile app to qbind the request with the Approov token.
-        token_binding_header = request.get_header 'HTTP_AUTHORIZATION'
+         # We need to hash and base64 encode the token binding header, because that's
+         # how it was included in the Approov token on the mobile app.
+         token_binding_header_encoded <-
+           :crypto.hash(:sha256, token_binding_header) |> Base.encode64(),
+         true <- token_binding_claim === token_binding_header_encoded do
+      {:ok, conn}
+    else
+      [] ->
+        # You may want to add some logging here
+        # Logger.debug("Missing the Approov token binding header!")
+        {:error, conn}
 
-        if not token_binding_header
-            # You may want to add some logging here
-            # Rails.logger.debug 'Missing the token binding header in the request headers.'
-            return false
-        end
+      {:error, error} ->
+        # You may want to add some logging here
+        # Logger.debug(
+        #   "Approov token binding verification failed with an unexpected reason for the error!"
+        # )
+        {:error, conn}
 
-        # We need to hash and base64 encode the token binding header, because that's
-        # how it was included in the Approov token on the mobile app.
-        token_binding_header_encoded = Digest::SHA256.base64digest token_binding_header
-
-        if not approov_token_claims['pay'] === token_binding_header_encoded
-            # You may want to add some logging here
-            # Rails.logger.debug 'Token binding not matching.'
-            return false
-        end
-
-        return true
+      false ->
+        # You may want to add some logging here
+        # Logger.debug("Token binding header not matching with the Approov token.")
+        {:error, conn}
     end
+  end
+
+  # Note that the `pay` claim will, under normal circumstances, be present,
+  # but if the Approov failover system is enabled, then no claim will be
+  # present, and in this case you want to return true, otherwise you will not
+  # be able to benefit from the redundancy afforded by the failover system.
+  defp _verify_approov_token_binding(conn, _approov_token_claims) do
+    # You may want to add some logging here
+    # Logger.debug("Missing the `pay` claim in the Approov token.")
+    {:ok, conn}
+  end
+
+  defp _has_expiration_claim(%{"exp" => _exp}), do: true
+  defp _has_expiration_claim(_approov_token_claims), do: false
+
+  defp _halt_connection(conn) do
+    conn
+    |> Plug.Conn.put_status(401)
+    |> Phoenix.Controller.json(%{})
+    |> Plug.Conn.halt()
+  end
 end
 ```
 
 > **NOTE:** When the Approov token validation fails we return a `401` with an empty body, because we don't want to give clues to an attacker about the reason the request failed, and you can go even further by returning a `400`.
 
-Now, add the [Approov Middleware](/src/approov-protected-server/token-binding-check/hello/app/middlewares/approov_middleware.rb) to your Phoenix application middleware configuration at [config/application.rb](/src/approov-protected-server/token-binding-check/hello/config/application.rb):
+Now, add the [Approov Token Plug](/src/approov-protected-server/token-binding-check/hello/lib/hello_web/plugs/approov_token_plug.ex) to the `:api` pipeline on your Phoenix router `lib/your_app_web/router.ex`:
 
 ```elixir
-# Inserted as the first middleware to protect your server from wasting
-# resources in processing requests not having a valid Approov token. This
-# increases availability for your users during peak time or in the event of a
-# DoS attack.
-config.middleware.insert_before ActionDispatch::HostAuthorization, ApproovMiddleware
+pipeline :api do
+  plug :accepts, ["json"]
+
+  # Ideally you will not want to add any other Plug before the Approov Token
+  # check to protect your server from wasting resources in processing requests
+  # not having a valid Approov token. This increases availability for your
+  # users during peak time or in the event of a DoS attack(We all know the
+  # BEAM design allows to cope very well with this scenarios, but best to play
+  # in the safe side).
+  plug YourAppWeb.ApproovTokenPlug
+end
 ```
 
 A full working example for a simple Hello World server can be found at [src/approov-protected-server/token-binding-check/hello](/src/approov-protected-server/token-binding-check/hello).

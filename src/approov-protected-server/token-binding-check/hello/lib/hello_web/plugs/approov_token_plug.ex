@@ -78,7 +78,6 @@ defmodule HelloWeb.ApproovTokenPlug do
          conn,
          %{"pay" => token_binding_claim} = _approov_token_claims
        ) do
-
     # We use the Authorization token, but feel free to use another header in
     # the request. Bear in mind that it needs to be the same header used in the
     # mobile app to bind the request with the Approov token.
@@ -89,9 +88,7 @@ defmodule HelloWeb.ApproovTokenPlug do
          token_binding_header_encoded <-
            :crypto.hash(:sha256, token_binding_header) |> Base.encode64(),
          true <- token_binding_claim === token_binding_header_encoded do
-
       {:ok, conn}
-
     else
       [] ->
         # You may want to add some logging here
