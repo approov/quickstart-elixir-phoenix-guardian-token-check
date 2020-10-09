@@ -1,6 +1,6 @@
 # Approov Token Integration Example
 
-This Approov integration example is from where the code example for the [Approov token check quickstart](/docs/APPROOV_TOKEN_QUICKSTART.md) is extracted, and you can use it as a playground to better understand how simple and easy it is to implement [Approov](https://approov.io) in a Elixir Phoenix API server.
+This Approov integration example is from where the code example for the [Approov token check quickstart](/docs/APPROOV_TOKEN_QUICKSTART.md) is extracted, and you can use it as a playground to better understand how simple and easy it is to implement [Approov](https://approov.io) in an Elixir Phoenix API server.
 
 ## TOC - Table of Contents
 
@@ -19,7 +19,7 @@ To lock down your API server to your mobile app. Please read the brief summary i
 
 ## How it works?
 
-The Elixir Phoenix API server is very simple and is defined in the project located at [src/approov-protected-server/token-check/hello](/src/approov-protected-server/token-check/hello). Take a look at the [Approov Middleware](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module, and search for the `verify_approov_token()` function to see the simple code for the check.
+The Elixir Phoenix API server is very simple and is defined in the project located at [src/approov-protected-server/token-check/hello](/src/approov-protected-server/token-check/hello). Take a look at the [Approov Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module, and search for the `verify_approov_token()` function to see the simple code for the check.
 
 For more background on Approov, see the overview in the [README](/README.md#how-it-works) at the root of this repo.
 

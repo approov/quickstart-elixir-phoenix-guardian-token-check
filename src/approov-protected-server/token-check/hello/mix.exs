@@ -39,7 +39,7 @@ defmodule Hello.MixProject do
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
       {:dotenv, "~> 3.0"},
-      {:guardian_phoenix, "~> 2.0"},
+      {:guardian_phoenix, "~> 2.0"}
     ]
   end
 

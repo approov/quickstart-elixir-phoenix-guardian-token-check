@@ -23,7 +23,8 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-approov_secret = System.get_env("APPROOV_BASE64_SECRET") ||
+approov_secret =
+  System.get_env("APPROOV_BASE64_SECRET") ||
     raise "Environment variable APPROOV_BASE64_SECRET is missing."
 
 config :hello, HelloWeb.ApproovTokenPlug,
