@@ -66,7 +66,7 @@ The quickstart code for the Approov Elixir Phoenix API server is split into two 
 * [Approov token check quickstart](/docs/APPROOV_TOKEN_QUICKSTART.md)
 * [Approov token check with token binding quickstart](/docs/APPROOV_TOKEN_BINDING_QUICKSTART.md)
 
-Both the quickstarts are built from the unprotected example server defined in this Phoenix [project](/src/unprotected-server/).
+Both the quickstarts are built from the unprotected example server defined in this Phoenix [project](/src/unprotected-server/hello).
 
 You can use Git to see the code differences between the two quickstarts:
 
