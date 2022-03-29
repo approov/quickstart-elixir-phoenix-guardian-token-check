@@ -42,19 +42,19 @@ To run this example you will need to have Elixir and Phoenix installed. If you d
 
 First, you need to install the dependencies. From the `src/unprotected-server/hello` folder execute:
 
-```text
+```bash
 mix deps.get
 ```
 
 Now, you can run this example from the `src/unprotected-server/hello` folder with:
 
-```text
+```bash
 iex -S mix phx.server
 ```
 
 Finally, you can test that it works with:
 
-```text
+```bash
 curl -iX GET 'http://localhost:8002'
 ```
 

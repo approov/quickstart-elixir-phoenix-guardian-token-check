@@ -39,15 +39,37 @@ First, you need to set the dummy secret as explained [here](/README.md#the-dummy
 
 Next, you need to install the dependencies. From the `src/approov-protected-server/token-binding-check/hello` folder execute:
 
-```text
+```bash
 mix deps.get
 ```
 
 Now, you can run this example from the `src/approov-protected-server/token-binding-check/hello` folder with:
 
-```text
+```bash
 iex -S mix phx.server
 ```
+
+Next, you can test that it works with:
+
+```bash
+curl -iX GET 'http://localhost:8002'
+```
+
+The response will be a `401` unauthorized request:
+
+```text
+HTTP/1.1 401 Unauthorized
+cache-control: max-age=0, private, must-revalidate
+content-length: 2
+content-type: application/json; charset=utf-8
+date: Tue, 29 Mar 2022 10:39:21 GMT
+server: Cowboy
+x-request-id: FuDT0frbbWf384cAAAEk
+
+{}
+```
+
+The reason you got a `401` is because the Approoov token isn't provided in the headers of the request.
 
 Finally, you can test that the Approov integration example works as expected with this [Postman collection](/README.md#testing-with-postman) or with some cURL requests [examples](/README.md#testing-with-curl).
 

@@ -46,29 +46,33 @@ defmodule HelloWeb.ApproovTokenPlug do
     else
       [] ->
         # You may want to add some logging here
-        # Logger.debug("Missing the Approov token header!")
+        Logger.debug("Missing the Approov token header!")
         {:error, conn}
 
       {:error, reason} when is_atom(reason) ->
         # You may want to add some logging here
-        # Logger.debug(Atom.to_string(reason))
+        Logger.debug(Atom.to_string(reason))
         {:error, conn}
 
-      {:error, %ArgumentError{} = _error} ->
+      {:error, %ArgumentError{} = error} ->
+        IO.inspect(error, label: "Argument Error")
+
         # You may want to add some logging here
-        # Logger.debug(
-        #   "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
-        # )
+        Logger.debug(
+          "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
+        )
         {:error, conn}
 
-      {:error, _error} ->
+      {:error, error} ->
+        IO.inspect(error, label: "Generic Error")
+
         # You may want to add some logging here
-        # Logger.debug("Approov token verification failed with an unexpected reason for the error!")
+        Logger.debug("Approov token verification failed with an unexpected reason for the error!")
         {:error, conn}
 
       false ->
         # You may want to add some logging here
-        # Logger.debug("Missing `exp` claim in a valid signed Approov token.")
+        Logger.debug("Missing `exp` claim in a valid signed Approov token.")
         {:error, conn}
     end
   end
