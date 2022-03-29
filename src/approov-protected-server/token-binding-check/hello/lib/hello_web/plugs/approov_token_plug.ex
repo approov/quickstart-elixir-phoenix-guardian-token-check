@@ -42,36 +42,67 @@ defmodule HelloWeb.ApproovTokenPlug do
   defp _verify_approov_token(conn) do
     with [approov_token | _] <- Plug.Conn.get_req_header(conn, "approov-token"),
          {:ok, approov_token_claims} <- decode_and_verify(approov_token),
-         true <- _has_expiration_claim(approov_token_claims) do
+         :ok <- _verify_expiration(approov_token_claims) do
       {:ok, conn, approov_token_claims}
     else
       [] ->
-        # You may want to add some logging here
-        # Logger.debug("Missing the Approov token header!")
+        # You may want to modify/remove logging here
+        Logger.debug("Missing the Approov token header!")
         {:error, conn}
 
       {:error, reason} when is_atom(reason) ->
-        # You may want to add some logging here
-        # Logger.debug(Atom.to_string(reason))
+        # You may want to modify/remove logging here
+        Logger.debug(Atom.to_string(reason))
         {:error, conn}
 
-      {:error, %ArgumentError{} = _error} ->
-        # You may want to add some logging here
-        # Logger.debug(
-        #   "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
-        # )
+      {:error, %ArgumentError{} = error} ->
+        # Comment out for debug
+        # IO.inspect(error, label: "Argument Error")
+
+        # You may want to modify/remove logging here
+        Logger.debug(
+          "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
+        )
         {:error, conn}
 
-      {:error, _error} ->
-        # You may want to add some logging here
-        # Logger.debug("Approov token verification failed with an unexpected reason for the error!")
-        {:error, conn}
+      {:error, error} ->
+        # Comment out for debug
+        # IO.inspect(error, label: "Generic Error")
 
-      false ->
-        # You may want to add some logging here
-        # Logger.debug("Missing `exp` claim in a valid signed Approov token.")
+        # You may want to modify/remove logging here
+        Logger.debug("Approov token verification failed with an unexpected reason for the error!")
         {:error, conn}
     end
+  end
+
+  defp _verify_expiration(%{"exp" => timestamp}) do
+    datetime = _timestamp_to_datetime(timestamp)
+    now = DateTime.utc_now()
+
+    case DateTime.compare(now, datetime) do
+      :lt ->
+        :ok
+
+      _ ->
+        {:error, :approov_token_expired}
+    end
+  end
+
+  defp _verify_expiration(_claims) do
+    {:error, :missing_exp_claim}
+  end
+
+  defp _timestamp_to_datetime(timestamp) when is_integer(timestamp) do
+    DateTime.from_unix!(timestamp)
+  end
+
+  defp _timestamp_to_datetime(timestamp) when is_float(timestamp) do
+    # @link https://github.com/ueberauth/guardian/issues/699
+    #
+    # iex> Integer.parse "1555083349.3777623"
+    # {1555083349, ".3777623"}
+    {timestamp, _decimals} = Integer.parse("#{timestamp}")
+    DateTime.from_unix!(timestamp)
   end
 
   defp _verify_approov_token_binding(
@@ -82,45 +113,47 @@ defmodule HelloWeb.ApproovTokenPlug do
     # the request. Bear in mind that it needs to be the same header used in the
     # mobile app to bind the request with the Approov token.
     with [token_binding_header | _] <- Plug.Conn.get_req_header(conn, "authorization"),
-
-         # We need to hash and base64 encode the token binding header, because that's
-         # how it was included in the Approov token on the mobile app.
-         token_binding_header_encoded <-
-           :crypto.hash(:sha256, token_binding_header) |> Base.encode64(),
-         true <- token_binding_claim === token_binding_header_encoded do
+      true <- _is_token_binding_valid(token_binding_header, token_binding_claim)
+    do
       {:ok, conn}
     else
       [] ->
-        # You may want to add some logging here
-        # Logger.debug("Missing the Approov token binding header!")
+        # You may want to modify/remove logging here
+        Logger.debug("Missing the Approov token binding header!")
         {:error, conn}
 
-      {:error, error} ->
-        # You may want to add some logging here
-        # Logger.debug(
-        #   "Approov token binding verification failed with an unexpected reason for the error!"
-        # )
+      {:error, _error} ->
+        # Comment out for debug
+        # IO.inspect(error, label: "Token Binding Error")
+
+        # You may want to modify/remove logging here
+        Logger.debug(
+          "Approov token binding verification failed with an unexpected reason for the error!"
+        )
         {:error, conn}
 
       false ->
-        # You may want to add some logging here
-        # Logger.debug("Token binding header not matching with the Approov token.")
+        # You may want to modify/remove logging here
+        Logger.debug("Token binding header not matching with the Approov token.")
         {:error, conn}
     end
   end
 
-  # Note that the `pay` claim will, under normal circumstances, be present,
-  # but if the Approov failover system is enabled, then no claim will be
-  # present, and in this case you want to return true, otherwise you will not
-  # be able to benefit from the redundancy afforded by the failover system.
   defp _verify_approov_token_binding(conn, _approov_token_claims) do
-    # You may want to add some logging here
-    # Logger.debug("Missing the `pay` claim in the Approov token.")
-    {:ok, conn}
+    # You may want to modify/remove logging here
+    Logger.debug("Missing the `pay` claim in the Approov token.")
+    {:error, conn}
   end
 
-  defp _has_expiration_claim(%{"exp" => _exp}), do: true
-  defp _has_expiration_claim(_approov_token_claims), do: false
+  defp _is_token_binding_valid(token_binding_header, token_binding_claim) do
+    # We need to hash and base64 encode the token binding header, because that's
+    # how it was included in the Approov token on the mobile app.
+    token_binding_header_encoded =
+      :crypto.hash(:sha256, token_binding_header)
+      |> Base.encode64()
+
+    token_binding_claim === token_binding_header_encoded
+  end
 
   defp _halt_connection(conn) do
     conn

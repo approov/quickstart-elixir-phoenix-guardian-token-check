@@ -48,7 +48,7 @@ Approov needs to know the domain name of the API for which it will issue tokens.
 
 Add it with:
 
-```text
+```bash
 approov api -add your.api.domain.com
 ```
 
@@ -62,7 +62,7 @@ Approov tokens are signed with a symmetric secret. To verify tokens, we need to 
 
 Retrieve the Approov secret with:
 
-```text
+```bash
 approov secret -get base64
 ```
 
@@ -70,9 +70,9 @@ approov secret -get base64
 
 #### Set the Approov Secret
 
-Export the Approov secret into the environment:
+From your terminal, export the Approov secret into the environment:
 
-```text
+```bash
 export APPROOV_BASE64_SECRET=approov_base64_secret_here
 ```
 
@@ -143,7 +143,7 @@ To check the Approov token we will use the [ueberauth/guardian](https://github.c
 First, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module to your project at `lib/your_app_web/plugs/approov_token_plug.ex`:
 
 ```elixir
-defmodule YourAppWeb.ApproovTokenPlug do
+defmodule YOUR_APP.ApproovTokenPlug do
   require Logger
 
   ##############################################################################
@@ -186,40 +186,52 @@ defmodule YourAppWeb.ApproovTokenPlug do
   defp _verify_approov_token(conn) do
     with [approov_token | _] <- Plug.Conn.get_req_header(conn, "approov-token"),
          {:ok, approov_token_claims} <- decode_and_verify(approov_token),
-         true <- _has_expiration_claim(approov_token_claims) do
+         :ok <- _verify_expiration(approov_token_claims) do
       {:ok, conn, approov_token_claims}
     else
       [] ->
         # You may want to add some logging here
-        # Logger.debug("Missing the Approov token header!")
         {:error, conn}
 
       {:error, reason} when is_atom(reason) ->
         # You may want to add some logging here
-        # Logger.debug(Atom.to_string(reason))
         {:error, conn}
 
-      {:error, %ArgumentError{} = _error} ->
+      {:error, %ArgumentError{} = error} ->
         # You may want to add some logging here
-        # Logger.debug(
-        #   "Approov token may be an invalid JWT token, e.g: with an invalid number of segments!"
-        # )
         {:error, conn}
 
-      {:error, _error} ->
+      {:error, error} ->
         # You may want to add some logging here
-        # Logger.debug("Approov token verification failed with an unexpected reason for the error!")
-        {:error, conn}
-
-      false ->
-        # You may want to add some logging here
-        # Logger.debug("Missing `exp` claim in a valid signed Approov token.")
         {:error, conn}
     end
   end
 
-  defp _has_expiration_claim(%{"exp" => _exp}), do: true
-  defp _has_expiration_claim(_approov_token_claims), do: false
+  defp _verify_expiration(%{"exp" => timestamp}) do
+    datetime = _timestamp_to_datetime(timestamp)
+    now = DateTime.utc_now()
+
+    case DateTime.compare(now, datetime) do
+      :lt ->
+        :ok
+
+      _ ->
+        {:error, :approov_token_expired}
+    end
+  end
+
+  defp _verify_expiration(_claims) do
+    {:error, :missing_exp_claim}
+  end
+
+  defp _timestamp_to_datetime(timestamp) when is_integer(timestamp) do
+    DateTime.from_unix!(timestamp)
+  end
+
+  defp _timestamp_to_datetime(timestamp) when is_float(timestamp) do
+    {timestamp, _decimals} = Integer.parse("#{timestamp}")
+    DateTime.from_unix!(timestamp)
+  end
 
   defp _halt_connection(conn) do
     conn
@@ -261,13 +273,13 @@ The following examples below use cURL, but you can also use the [Postman Collect
 
 Generate a valid token example from the Approov Cloud service:
 
-```text
+```bash
 approov token -genExample your.api.domain.com
 ```
 
 Then make the request with the generated token:
 
-```text
+```bash
 curl -i --request GET 'https://your.api.domain.com' \
   --header 'Approov-Token: APPROOV_TOKEN_EXAMPLE_HERE'
 ```
@@ -286,13 +298,13 @@ HTTP/1.1 200
 
 Generate an invalid token example from the Approov Cloud service:
 
-```text
+```bash
 approov token -type invalid -genExample your.api.domain.com
 ```
 
 Then make the request with the generated token:
 
-```text
+```bash
 curl -i --request GET 'https://your.api.domain.com' \
   --header 'Approov-Token: APPROOV_INVALID_TOKEN_EXAMPLE_HERE'
 ```

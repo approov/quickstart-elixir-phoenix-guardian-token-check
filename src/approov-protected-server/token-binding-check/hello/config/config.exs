@@ -5,7 +5,7 @@
 # is restricted to this project.
 
 # General application configuration
-use Mix.Config
+import Config
 
 # Configures the endpoint
 config :hello, HelloWeb.Endpoint,
@@ -23,7 +23,8 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-import_config "releases.exs"
+# Comment out below line only if you are on Elixir 1.9.* or 1.10.*
+# import_config "releases.exs"
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
