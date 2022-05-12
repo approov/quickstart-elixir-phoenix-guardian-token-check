@@ -7,97 +7,205 @@ This repo implements the Approov server-side request verification code in [Elixi
 This is an Approov integration quickstart example for the Elixir Phoenix framework, that uses the Guardian library to check the Approov token. If you are looking for another Elixir integration you can check our list of [quickstarts](https://approov.io/docs/latest/approov-integration-examples/backend-api/), and if you don't find what you are looking for, then please let us know [here](https://approov.io/contact).
 
 
-## TOC - Table of Contents
 
-* [Why?](#why)
-* [How it Works?](#how-it-works)
-* [Quickstarts](#approov-integration-quickstarts)
-* [Examples](#approov-integration-examples)
-* [Useful Links](#useful-links)
+## Approov Integration Quickstart
 
+The quickstart was tested with the following Operating Systems:
 
-## Why?
+* Ubuntu 20.04
+* MacOS Big Sur
+* Windows 10 WSL2 - Ubuntu 20.04
 
-You can learn more about Approov, the motives for adopting it, and more detail on how it works by following this [link](https://approov.io/product). In brief, Approov:
+First, setup the [Appoov CLI](https://approov.io/docs/latest/approov-installation/index.html#initializing-the-approov-cli).
 
-* Ensures that accesses to your API come from official versions of your apps; it blocks accesses from republished, modified, or tampered versions
-* Protects the sensitive data behind your API; it prevents direct API abuse from bots or scripts scraping data and other malicious activity
-* Secures the communication channel between your app and your API with [Approov Dynamic Certificate Pinning](https://approov.io/docs/latest/approov-usage-documentation/#approov-dynamic-pinning). This has all the benefits of traditional pinning but without the drawbacks
-* Removes the need for an API key in the mobile app
-* Provides DoS protection against targeted attacks that aim to exhaust the API server resources to prevent real users from reaching the service or to at least degrade the user experience.
+Now, register the API domain for which Approov will issues tokens:
 
-[TOC](#toc---table-of-contents)
-
-
-## How it works?
-
-This is a brief overview of how the Approov cloud service and the Elixir Phoenix API server fit together from a backend perspective. For a complete overview of how the mobile app and backend fit together with the Approov cloud service and the Approov SDK we recommend to read the [Approov overview](https://approov.io/product) page on our website.
-
-### Approov Cloud Service
-
-The Approov cloud service attests that a device is running a legitimate and tamper-free version of your mobile app.
-
-* If the integrity check passes then a valid token is returned to the mobile app
-* If the integrity check fails then a legitimate looking token will be returned
-
-In either case, the app, unaware of the token's validity, adds it to every request it makes to the Approov protected API(s).
-
-### Elixir Phoenix API Server
-
-The Elixir Phoenix API server ensures that the token supplied in the `Approov-Token` header is present and valid. The validation is done by using a shared secret known only to the Approov cloud service and the Elixir Phoenix API server.
-
-The request is handled such that:
-
-* If the Approov Token is valid, the request is allowed to be processed by the API endpoint
-* If the Approov Token is invalid, an HTTP 401 Unauthorized response is returned
-
-You can choose to log JWT verification failures, but we left it out on purpose so that you can have the choice of how you prefer to do it and decide the right amount of information you want to log.
-
->#### System Clock
->
->In order to correctly check for the expiration times of the Approov tokens is very important that the Phoenix backend server is synchronizing automatically the system clock over the network with an authoritative time source. In Linux this is usually done with a NTP server.
-
-[TOC](#toc---table-of-contents)
-
-
-## Approov Integration Quickstarts
-
-The quickstart code for the Approov Elixir Phoenix API server is split into two implementations. The first gets you up and running with basic token checking. The second uses a more advanced Approov feature, _token binding_. Token binding may be used to link the Approov token with other properties of the request, such as user authentication (more details can be found [here](https://approov.io/docs/latest/approov-usage-documentation/#token-binding)).
-* [Approov token check quickstart](/docs/APPROOV_TOKEN_QUICKSTART.md)
-* [Approov token check with token binding quickstart](/docs/APPROOV_TOKEN_BINDING_QUICKSTART.md)
-
-Both the quickstarts are built from the unprotected example server defined in this Phoenix [project](/src/unprotected-server/hello).
-
-You can use Git to see the code differences between the two quickstarts:
-
-```
-git diff --no-index src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex src/approov-protected-server/token-binding-check/hello/lib/hello_web/plugs/approov_token_plug.ex
+```bash
+approov api -add api.example.com
 ```
 
-[TOC](#toc---table-of-contents)
+Next, enable your Approov `admin` role with:
 
+```bash
+eval `approov role admin`
+````
 
-## Approov Integration Examples
+Now, retrieve the [Approov secret](https://approov.io/docs/latest/approov-usage-documentation/#account-secret-key-export):
 
-The code examples for the Approov quickstarts are extracted from this simple [Approov integration examples](/src/approov-protected-server), that you can run from your computer to play around with the Approov integration and gain a better understanding of how simple and easy it is to integrate Approov in a Elixir Phoenix API server.
-
-### Testing with Postman
-
-A ready-to-use Postman collection can be found [here](https://raw.githubusercontent.com/approov/postman-collections/master/quickstarts/hello-world/hello-world.postman_collection.json). It contains a comprehensive set of example requests to send to the Elixir Phoenix API server for testing. The collection contains requests with valid and invalid Approov tokens, and with and without token binding.
-
-### Testing with Curl
-
-An alternative to the Postman collection is to use cURL to make the API requests. Check some examples [here](https://github.com/approov/postman-collections/blob/master/quickstarts/hello-world/hello-world.postman_curl_requests_examples.md).
-
-### The Dummy Secret
-
-The valid Approov tokens in the Postman collection and cURL requests examples were signed with a dummy secret that was generated with `openssl rand -base64 64 | tr -d '\n'; echo`, therefore not a production secret retrieved with `approov secret -get base64`, thus in order to use it you need to set the `APPROOV_BASE64_SECRET`, in the environment your app will run with:
-
-```text
-export APPROOV_BASE64_SECRET=h+CX0tOzdAAR9l15bWAqvq7w9olk66daIH+Xk+IAHhVVHszjDzeGobzNnqyRze3lw/WVyWrc2gZfh3XXfBOmww==
+```bash
+approov secret -get base64Url
 ```
 
-[TOC](#toc---table-of-contents)
+Next, export the Approov secret into the environment:
+
+```bash
+export APPROOV_BASE64URL_SECRET=approov_base64url_secret_here
+```
+
+Now, you need to retrieve the Approov secret from your running application. From Elixir `1.11` we have the runtime configuration, that will run every-time a release or a Mix project is started, thus the ideal place to retrieve the Aproov secret from the environment. Add the following code to your `config/runtime.exs`:
+
+```elixir
+approov_secret =
+  System.get_env("APPROOV_BASE64_SECRET") ||
+    raise "Environment variable APPROOV_BASE64_SECRET is missing."
+
+config :YOUR_APP, YOUR_APP.ApproovTokenPlug,
+  allowed_algos: ["HS256"],
+  secret_key: Base.decode64!(approov_secret)
+```
+
+> **NOTE:** If you are below Elixir `1.11` then follow [this quickstart](/docs/APPROOV_TOKEN_QUICKSTART.md#approov-secret) steps to add the Approov secret to your application.
+
+Next, to check the Approov token you need to add the [ueberauth/guardian](https://github.com/ueberauth/guardian) package to your dependencies on `mix.exs`:
+
+```elixir
+{:guardian, "~> 2.0"}
+```
+
+Now, you can install it with:
+
+```
+mix install
+```
+
+Next, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) module to your project at `lib/your_app_web/plugs/approov_token_plug.ex`:
+
+```elixir
+defmodule YOUR_APP.ApproovTokenPlug do
+  require Logger
+
+  ##############################################################################
+  # Adhere to the Phoenix Module Plugs specification by implementing:
+  #   * init/1
+  #   * call/2
+  #
+  # @link https://hexdocs.pm/phoenix/plug.html#module-plugs
+  ##############################################################################
+
+  def init(options), do: options
+
+  def call(conn, _options) do
+    with {:ok, conn, _approov_token_claims} <- _verify_approov_token(conn) do
+      conn
+    else
+      {:error, conn} ->
+        conn |> _halt_connection()
+    end
+  end
+
+  ##############################################################################
+  # Inject Guardian functions and implement the required behaviour callbacks:
+  #   * subject_for_token/2
+  #   * resource_from_claims/2
+  #
+  # The required behaviour functions are not necessary in the context of
+  # checking the Approov token, but required to be implemented in order to use
+  # Guardian.
+  ##############################################################################
+
+  use Guardian, otp_app: :hello
+
+  @impl true
+  def subject_for_token(user, _claims), do: {:ok, to_string(user.id)}
+
+  @impl true
+  def resource_from_claims(claims), do: {:ok, claims["sub"]}
+
+  defp _verify_approov_token(conn) do
+    with [approov_token | _] <- Plug.Conn.get_req_header(conn, "approov-token"),
+         {:ok, approov_token_claims} <- decode_and_verify(approov_token),
+         :ok <- _verify_expiration(approov_token_claims) do
+      {:ok, conn, approov_token_claims}
+    else
+      [] ->
+        # You may want to add some logging here
+        {:error, conn}
+
+      {:error, reason} when is_atom(reason) ->
+        # You may want to add some logging here
+        {:error, conn}
+
+      {:error, %ArgumentError{} = error} ->
+        # You may want to add some logging here
+        {:error, conn}
+
+      {:error, error} ->
+        # You may want to add some logging here
+        {:error, conn}
+    end
+  end
+
+  defp _verify_expiration(%{"exp" => timestamp}) do
+    datetime = _timestamp_to_datetime(timestamp)
+    now = DateTime.utc_now()
+
+    case DateTime.compare(now, datetime) do
+      :lt ->
+        :ok
+
+      _ ->
+        {:error, :approov_token_expired}
+    end
+  end
+
+  defp _verify_expiration(_claims) do
+    {:error, :missing_exp_claim}
+  end
+
+  defp _timestamp_to_datetime(timestamp) when is_integer(timestamp) do
+    DateTime.from_unix!(timestamp)
+  end
+
+  defp _timestamp_to_datetime(timestamp) when is_float(timestamp) do
+    {timestamp, _decimals} = Integer.parse("#{timestamp}")
+    DateTime.from_unix!(timestamp)
+  end
+
+  defp _halt_connection(conn) do
+    conn
+    |> Plug.Conn.put_status(401)
+    |> Phoenix.Controller.json(%{})
+    |> Plug.Conn.halt()
+  end
+end
+```
+
+> **NOTE:** When the Approov token validation fails we return a `401` with an empty body, because we don't want to give clues to an attacker about the reason the request failed, and you can go even further by returning a `400`.
+
+Now, add the [Approov Token Plug](/src/approov-protected-server/token-check/hello/lib/hello_web/plugs/approov_token_plug.ex) to the `:api` pipeline on your Phoenix router `lib/your_app_web/router.ex`:
+
+```elixir
+pipeline :api do
+  plug :accepts, ["json"]
+
+  # Ideally you will not want to add any other Plug before the Approov Token
+  # check to protect your server from wasting resources in processing requests
+  # not having a valid Approov token. This increases availability for your
+  # users during peak time or in the event of a DoS attack(We all know the
+  # BEAM design allows to cope very well with this scenarios, but best to play
+  # in the safe side).
+  plug YourAppWeb.ApproovTokenPlug
+end
+```
+
+Not enough details in the bare bones quickstart? No worries, check the [detailed quickstarts](QUICKSTARTS.md) that contain a more comprehensive set of instructions, including how to test the Approov integration.
+
+
+## More Information
+
+* [Approov Overview](OVERVIEW.md)
+* [Detailed Quickstarts](QUICKSTARTS.md)
+* [Step by Step Examples](EXAMPLES.md)
+* [Testing](TESTING.md)
+
+### System Clock
+
+In order to correctly check for the expiration times of the Approov tokens is very important that the backend server is synchronizing automatically the system clock over the network with an authoritative time source. In Linux this is usually done with a NTP server.
+
+
+## Issues
+
+If you find any issue while following our instructions then just report it [here](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/issues), with the steps to reproduce it, and we will sort it out and/or guide you to the correct path.
 
 
 ## Useful Links
@@ -105,14 +213,12 @@ export APPROOV_BASE64_SECRET=h+CX0tOzdAAR9l15bWAqvq7w9olk66daIH+Xk+IAHhVVHszjDze
 If you wish to explore the Approov solution in more depth, then why not try one of the following links as a jumping off point:
 
 * [Approov Free Trial](https://approov.io/signup)(no credit card needed)
+* [Approov Get Started](https://approov.io/product/demo)
 * [Approov QuickStarts](https://approov.io/docs/latest/approov-integration-examples/)
-* [Approov Live Demo](https://approov.io/product/demo)
 * [Approov Docs](https://approov.io/docs)
-* [Approov Blog](https://blog.approov.io)
+* [Approov Blog](https://approov.io/blog/)
 * [Approov Resources](https://approov.io/resource/)
 * [Approov Customer Stories](https://approov.io/customer)
 * [Approov Support](https://approov.zendesk.com/hc/en-gb/requests/new)
 * [About Us](https://approov.io/company)
 * [Contact Us](https://approov.io/contact)
-
-[TOC](#toc---table-of-contents)
