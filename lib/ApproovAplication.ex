@@ -87,6 +87,7 @@ defmodule ApproovApplication.ProtectedRoutes do
     @protected_routes
   end
 
+  @spec requirements(any(), any()) :: any()
   def requirements(method, path) do
     Enum.find(@protected_routes, fn route ->
       route.method == method and route.path == path
@@ -201,7 +202,7 @@ defmodule ApproovApplication.ApproovTokenVerifier do
 
   defp binding_hash(value) do
     :crypto.hash(:sha256, value)
-    |> Base.url_encode64(padding: false)
+    |> Base.encode64()
   end
 
   defp compare_pay_claim(pay_claim, expected_hash, binding_headers) do
