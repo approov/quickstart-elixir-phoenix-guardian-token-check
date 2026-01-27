@@ -317,7 +317,8 @@ defmodule ApproovApplicationWeb.Router do
     pipe_through([:api, :approov])
 
     for route <- ApproovApplication.ProtectedRoutes.protected_routes() do
-      get(route.path, ApproovController, route.action,
+      verb = String.downcase(route.method) |> String.to_atom()
+      match(verb, route.path, ApproovController, route.action,
         private: %{approov_binding_headers: route.binding_headers}
       )
     end
