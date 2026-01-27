@@ -4,7 +4,7 @@
 FROM elixir:1.19.5-otp-28
 
 ENV APP_HOME=/workspace \
-    RUN_MODE=container \
+    RUN_MODE=container
     
 WORKDIR /app
 
