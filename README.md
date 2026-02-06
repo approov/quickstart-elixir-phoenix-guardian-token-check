@@ -7,19 +7,19 @@ This project provides a server-side example of Approov token verification for a 
  - `/token-binding` - requires a valid Approov token which is bound to a header value.
  - `/token-double-binding` - requires a valid Approov token which is bound to two header values.
 
-In this example, Approov token check is implemented in `ApproovAplication.ex`. The responsibilities break down as follows:
+In this example, Approov token check is implemented in `ApproovApplication.ex`. The responsibilities break down as follows:
 
-1. **JWT Approov Token validation (signature + expiry)** is implemented in [verify_request/2 + verify_expiration/1](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovAplication.ex#L116-L169). It verifies the HS256 signature via Guardian and rejects tokens that are missing or past `exp`.
+1. **JWT Approov token verification (signature + `exp` enforcement)** is implemented in [verify_request/2 + verify_expiration/1](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L118-L174). It verifies the HS256 signature and rejects tokens that are missing or past `exp`.
 
-2. **Token binding (pay + hash)** is handled by [verify_binding/3 + binding_hash/1 + compare_pay_claim/3](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovAplication.ex#L171-L225). It computes `base64url(sha256(binding_value))` and compares it to `pay` (optionally in `name:hash` form).
+2. **Token binding verification (pay + hash)** is handled by [verify_binding/3 + binding_hash/1 + compare_pay_claim/2](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L176-L220). It computes `base64(sha256(binding_value))` and performs a constant-time comparison against the raw `pay` claim.
 
-3. **Middleware enforcement** is done by [ApproovApplicationWeb.ApproovEnforcer](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovAplication.ex#L228-L254). Requests without valid token/binding are rejected with 401.
+3. **Middleware enforcement** is done by [ApproovApplicationWeb.ApproovEnforcer](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L276-L306). Requests without valid token/binding are rejected with `401`.
 
-4. **Binding value selection (what gets hashed)** is in [binding_value/2](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovAplication.ex#L188-L201). It uses the headers configured in `ProtectedRoutes` (currently `Authorization` for single binding, or `Authorization` + `Content-Digest` for double binding).
+4. **Binding value construction (what gets hashed)** is in [binding_value/2](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L193-L205). It concatenates the headers configured in `ProtectedRoutes` (currently `Authorization` for single binding, or `Authorization` + `SessionId` for double binding).
 
-5. **Protected route requirements** are defined in [ApproovApplication.ProtectedRoutes](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovAplication.ex#L70-L101).
+5. **Protected route requirements** are defined in [ProtectedRoutes](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L69-L101).
 
-6. **Protected routes are registered** in [ApproovApplicationWeb.Router](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovAplication.ex#L298-L327).
+6. **Protected routes are registered** in [ApproovApplicationWeb.Router](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L426-L455).
 
 ## Approov Token Verification Flow
 
@@ -90,7 +90,7 @@ bash test.sh
 This script:
 - Verifies that the `approov` and `curl` commands are installed.
 - Checks Approov status by calling `/approov-state` (enabled vs disabled).
-- Runs endpoint tests against `/unprotected` (no token), `/token-check` (valid/invalid Approov tokens), `/token-binding` (token bound to `Authorization`), and `/token-double-binding` (token bound to `Authorization` + `Content-Digest`).
+- Runs endpoint tests against `/unprotected` (no token), `/token-check` (valid/invalid Approov tokens), `/token-binding` (token bound to `Authorization`), and `/token-double-binding` (token bound to `Authorization` + `SessionId`).
 - Logs full request/response details to `.config/logs/<timestamp>.log`.
 
 #### *1. Unprotected Endpoint (No Approov)*
@@ -187,16 +187,16 @@ Cache-Control: no-cache
 - The client sends three headers on authenticated API calls:
     - `Approov-Token`
     - `Authorization`
-    - `Content-Digest` It is combined with the `Authorization` header to create a stronger binding.
+    - `SessionId` It is combined with the `Authorization` header to create a stronger binding.
 - Both are included in the hash inside the Approov token. This means the server verifies a single hash that covers both authentication credentials.
 - **Use case:** Stronger protection then single binding by tying both headers together.
 
 ***The following example shows how the API responds when an Approov token with two bindings is required.***
 
-*Generate a valid Approov token bound to the `Authorization` and `Content-Digest` headers:*
+*Generate a valid Approov token bound to the `Authorization` and `SessionId` headers:*
 
 ```bash
-approov token -setDataHashInToken ExampleAuthToken==ContentDigest== -genExample example.com
+approov token -setDataHashInToken ExampleAuthToken==123 -genExample example.com
 ```
 
 *Use the generated token with two bindings in the Approov-Token and Authorization headers when calling the `/token-double-binding` endpoint.*
@@ -205,7 +205,7 @@ approov token -setDataHashInToken ExampleAuthToken==ContentDigest== -genExample 
 curl -iX GET http://localhost:8080/token-double-binding \
      -H "Approov-Token: valid_approov_token_here" \
      -H "Authorization: ExampleAuthToken==" \
-     -H "Content-Digest: ContentDigest=="
+     -H "SessionId: 123"
 ```
 
 The response will be `200 OK` for this request.

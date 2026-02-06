@@ -4,7 +4,6 @@
 /.env
 /.config/
 _build
-mix.lock
 .config
 .DS_Store
 

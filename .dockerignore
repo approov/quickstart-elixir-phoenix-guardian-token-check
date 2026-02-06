@@ -1,0 +1,14 @@
+.git
+.gitignore
+.DS_Store
+.elixir_ls
+.config
+.env
+.env.*
+_build
+deps
+node_modules
+priv/
+test/
+test.sh
+README.md

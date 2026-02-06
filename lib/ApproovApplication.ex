@@ -73,13 +73,13 @@ defmodule ApproovApplication.ProtectedRoutes do
       method: "GET",
       path: "/token-binding",
       action: :token_binding,
-      binding_headers: ["authorization"]
+      binding_headers: ["Authorization"]
     },
     %{
       method: "GET",
       path: "/token-double-binding",
       action: :token_double_binding,
-      binding_headers: ["authorization", "content-digest"]
+      binding_headers: ["Authorization", "SessionId"]
     }
   ]
 
@@ -106,6 +106,8 @@ defmodule ApproovApplication.ApproovTokenVerifier do
   require Logger
 
   @approov_token_header "approov-token"
+  @secret_placeholder "approov_base64url_secret_here"
+  @secret_log_key {__MODULE__, :secret_issue_checked}
 
   @impl true
   def subject_for_token(_resource, _claims), do: {:ok, "approov"}
@@ -114,6 +116,8 @@ defmodule ApproovApplication.ApproovTokenVerifier do
   def resource_from_claims(_claims), do: {:ok, :approov}
 
   def verify_request(conn, binding_headers) do
+    log_secret_issue_once()
+
     with {:ok, token} <- fetch_approov_token(conn),
          {:ok, claims} <- decode_and_verify(token),
          :ok <- verify_expiration(claims),
@@ -156,12 +160,13 @@ defmodule ApproovApplication.ApproovTokenVerifier do
       nil ->
         {:error, :invalid_exp_claim}
 
-      timestamp ->
-        expiration = DateTime.from_unix!(timestamp)
+      timestamp when is_integer(timestamp) ->
+        now = System.system_time(:second)
 
-        case DateTime.compare(DateTime.utc_now(), expiration) do
-          :lt -> :ok
-          _ -> {:error, :approov_token_expired}
+        if timestamp > now do
+          :ok
+        else
+          {:error, :approov_token_expired}
         end
     end
   end
@@ -176,7 +181,7 @@ defmodule ApproovApplication.ApproovTokenVerifier do
   defp verify_binding(conn, %{"pay" => pay_claim}, binding_headers) do
     with {:ok, binding_value} <- binding_value(conn, binding_headers),
          expected_hash <- binding_hash(binding_value),
-         :ok <- compare_pay_claim(pay_claim, expected_hash, binding_headers) do
+         :ok <- compare_pay_claim(pay_claim, expected_hash) do
       :ok
     else
       {:error, reason} -> {:error, reason}
@@ -205,51 +210,174 @@ defmodule ApproovApplication.ApproovTokenVerifier do
     |> Base.encode64()
   end
 
-  defp compare_pay_claim(pay_claim, expected_hash, binding_headers) do
-    case String.split(pay_claim, ":", parts: 2) do
-      [^expected_hash] ->
-        :ok
+  defp compare_pay_claim(pay_claim, expected_hash) do
+    pay_claim = String.trim(pay_claim)
 
-      [name, hash] ->
-        expected_name = ApproovApplication.ProtectedRoutes.binding_name(binding_headers)
+    if Plug.Crypto.secure_compare(pay_claim, expected_hash) do
+      :ok
+    else
+      {:error, :token_binding_mismatch}
+    end
+  end
 
-        if name == expected_name and hash == expected_hash do
-          :ok
-        else
-          {:error, :token_binding_mismatch}
+  defp log_secret_issue_once do
+    case :persistent_term.get(@secret_log_key, :unchecked) do
+      :unchecked ->
+        case secret_issue() do
+          nil ->
+            :persistent_term.put(@secret_log_key, :ok)
+
+          message ->
+            Logger.error(message)
+            :persistent_term.put(@secret_log_key, :invalid)
         end
 
       _ ->
-        {:error, :token_binding_mismatch}
+        :ok
+    end
+  end
+
+  defp secret_issue do
+    value = System.get_env("APPROOV_BASE64URL_SECRET")
+
+    cond do
+      value in [nil, ""] ->
+        "Required secret is not set"
+
+      value == @secret_placeholder ->
+        "Required secret is not set"
+
+      valid_base64url?(value) ->
+        nil
+
+      valid_base64?(value) ->
+        nil
+
+      true ->
+        "Required secret is invalid"
+    end
+  end
+
+  defp valid_base64url?(value) do
+    case Base.url_decode64(value, padding: false) do
+      {:ok, _} -> true
+      :error -> false
+    end
+  end
+
+  defp valid_base64?(value) do
+    case Base.decode64(value) do
+      {:ok, _} -> true
+      :error -> false
     end
   end
 end
 
 defmodule ApproovApplicationWeb.ApproovEnforcer do
   import Plug.Conn
+  require Logger
 
   alias ApproovApplication.{ApproovState, ApproovTokenVerifier}
 
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    if ApproovState.enabled?() do
-      binding_headers = conn.private[:approov_binding_headers] || []
+    binding_headers = conn.private[:approov_binding_headers] || []
+    approov_enabled = ApproovState.enabled?()
 
+    conn = register_request_logging(conn, binding_headers, approov_enabled)
+
+    if approov_enabled do
       case ApproovTokenVerifier.verify_request(conn, binding_headers) do
         {:ok, _claims} -> conn
-        {:error, _reason} -> reject(conn)
+        {:error, reason} -> reject(conn, reason)
       end
     else
       conn
     end
   end
 
-  defp reject(conn) do
+  defp reject(conn, reason) do
     conn
+    |> assign(:approov_failure, reason)
     |> put_status(:unauthorized)
     |> Phoenix.Controller.json(%{error: "unauthorized"})
     |> halt()
+  end
+
+  defp register_request_logging(conn, binding_headers, approov_enabled) do
+    token_binding_enabled = binding_headers != []
+    required_headers = required_headers(binding_headers)
+
+    register_before_send(conn, fn conn ->
+      if conn.status in [200, 401] do
+        payload = %{
+          summary: request_summary(conn, approov_enabled),
+          method: conn.method,
+          path: conn.request_path,
+          status: conn.status,
+          ip: ip_string(conn.remote_ip),
+          port: conn.port,
+          approovEnabled: approov_enabled,
+          tokenBindingEnabled: token_binding_enabled,
+          required_headers: required_headers
+        }
+
+        Logger.info("http.request.completed " <> Jason.encode!(payload))
+      end
+
+      conn
+    end)
+  end
+
+  defp request_summary(conn, approov_enabled) do
+    case conn.status do
+      401 ->
+        reason = Map.get(conn.assigns, :approov_failure)
+        "approov_failed:" <> failure_reason(reason)
+
+      200 ->
+        if approov_enabled, do: "approov_ok", else: "approov_disabled"
+
+      _ ->
+        "http_request"
+    end
+  end
+
+  defp failure_reason({:missing_binding_header, _header}), do: "missing_binding_header"
+  defp failure_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp failure_reason(_reason), do: "token_verification_failed"
+
+  defp required_headers(binding_headers) do
+    ["Approov-Token" | binding_headers]
+    |> Enum.map(&canonical_header/1)
+    |> Enum.uniq()
+  end
+
+  defp canonical_header(header) when is_binary(header) do
+    case String.downcase(header) do
+      "approov-token" -> "Approov-Token"
+      "authorization" -> "Authorization"
+      "sessionid" -> "SessionId"
+      other -> titleize_header(other)
+    end
+  end
+
+  defp canonical_header(header), do: header
+
+  defp titleize_header(header) do
+    header
+    |> String.split("-")
+    |> Enum.map(&String.capitalize/1)
+    |> Enum.join("-")
+  end
+
+  defp ip_string(nil), do: nil
+
+  defp ip_string(ip) do
+    ip
+    |> :inet.ntoa()
+    |> to_string()
   end
 end
 
