@@ -239,6 +239,7 @@ curl -X GET http://localhost:8080/approov-state       # check current state
 * Runtime: Elixir 1.19.5
 * Framework: Phoenix 1.8.3
 * Build Tool: Mix 1.19.5
+* JWT Library: Guardian 2.4.0
 ```
 
 If you encounter any problems while following this guide, or have any other concerns, please let us know by opening an issue [here](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/issues) and we will be happy to assist you.
