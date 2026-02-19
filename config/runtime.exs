@@ -16,18 +16,69 @@ config :approov_application, ApproovApplicationWeb.Endpoint,
   server: true
 
 # Approov HS256 secret (base64url-encoded).
+secret_env_name = "APPROOV_BASE64URL_SECRET"
+secret_placeholder = "approov_base64url_secret_here"
+
 approov_secret_b64url =
-  System.get_env("APPROOV_BASE64URL_SECRET") ||
-    raise "Environment variable APPROOV_BASE64URL_SECRET is missing."
+  case System.get_env(secret_env_name) do
+    nil ->
+      raise """
+      Environment variable #{secret_env_name} is missing.
+      Configure it in your local environment, for example:
+      #{secret_env_name}=<approov_base64url_secret>
+      """
+
+    raw_value ->
+      value = String.trim(raw_value)
+
+      cond do
+        value == "" ->
+          raise """
+          Environment variable #{secret_env_name} is empty.
+          Configure it in your local environment, for example:
+          #{secret_env_name}=<approov_base64url_secret>
+          """
+
+        value == secret_placeholder ->
+          raise """
+          Environment variable #{secret_env_name} is still using the placeholder value.
+          Replace it with your real Approov secret.
+          """
+
+        true ->
+          value
+      end
+  end
 
 approov_secret =
   case Base.url_decode64(approov_secret_b64url, padding: false) do
-    {:ok, decoded} ->
+    {:ok, decoded} when byte_size(decoded) > 0 ->
       decoded
+
+    {:ok, _decoded} ->
+      raise """
+      Environment variable #{secret_env_name} decodes to an empty secret.
+      Provide a valid non-empty Approov base64url secret.
+      """
 
     :error ->
       # Fallback for padded/base64 secrets if needed.
-      Base.decode64!(approov_secret_b64url)
+      case Base.decode64(approov_secret_b64url) do
+        {:ok, decoded} when byte_size(decoded) > 0 ->
+          decoded
+
+        {:ok, _decoded} ->
+          raise """
+          Environment variable #{secret_env_name} decodes to an empty secret.
+          Provide a valid non-empty Approov base64url secret.
+          """
+
+        :error ->
+          raise """
+          Environment variable #{secret_env_name} is invalid.
+          Provide a valid Approov base64url secret.
+          """
+      end
   end
 
 config :approov_application, ApproovApplication.ApproovTokenVerifier,

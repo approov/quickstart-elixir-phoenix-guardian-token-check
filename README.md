@@ -7,19 +7,19 @@ This project provides a server-side example of Approov token verification for a 
  - `/token-binding` - requires a valid Approov token which is bound to a header value.
  - `/token-double-binding` - requires a valid Approov token which is bound to two header values.
 
-In this example, Approov token check is implemented in `ApproovApplication.ex`. The responsibilities break down as follows:
+In this example, Approov token checks are implemented mainly in `ApproovApplication.ApproovTokenVerifier` and enforced by `ApproovApplicationWeb.ApproovEnforcer`. The responsibilities break down as follows:
 
-1. **JWT Approov token verification (signature + `exp` enforcement)** is implemented in [verify_request/2 + verify_expiration/1](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L118-L174). It verifies the HS256 signature and rejects tokens that are missing or past `exp`.
+1. **JWT Approov token verification (signature + `exp` enforcement)** is in [verify_request/2 + verify_expiration/1](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application/approov_token_verifier.ex#L26-L88). It verifies token signatures via Guardian, HS256 configured in [config/runtime.exs](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/config/runtime.exs#L84-L86) and rejects tokens that are missing, invalid, or past `exp`.
 
-2. **Token binding verification (pay + hash)** is handled by [verify_binding/3 + binding_hash/1 + compare_pay_claim/2](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L176-L220). It computes `base64(sha256(binding_value))` and performs a constant-time comparison against the raw `pay` claim.
+2. **Token binding verification (pay + hash)** is handled by [verify_binding/3 + binding_hash/1 + compare_pay_claim/2](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application/approov_token_verifier.ex#L90-L146). It computes `base64(sha256(binding_input))` and performs a constant-time comparison against the raw `pay` claim.
 
-3. **Middleware enforcement** is done by [ApproovApplicationWeb.ApproovEnforcer](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L276-L306). Requests without valid token/binding are rejected with `401`.
+3. **Middleware enforcement** is done by [ApproovApplicationWeb.ApproovEnforcer](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application_web/approov_enforcer.ex#L10-L34). On protected routes, requests that fail token or binding verification are rejected with `401 Unauthorized` (when Approov is enabled).
 
-4. **Binding value construction (what gets hashed)** is in [binding_value/2](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L193-L205). It concatenates the headers configured in `ProtectedRoutes` (currently `Authorization` for single binding, or `Authorization` + `SessionId` for double binding).
+4. **Binding input construction (what gets hashed)** is in [binding_input/2](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application/approov_token_verifier.ex#L113-L127). It concatenates request header values in the order configured in [ProtectedRoutes](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application/protected_routes.ex#L4-L18) (currently `Authorization` for single binding, or `Authorization` + `SessionId` for double binding).
 
-5. **Protected route requirements** are defined in [ProtectedRoutes](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L69-L101).
+5. **Protected route requirements** are defined in [ApproovApplication.ProtectedRoutes](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application/protected_routes.ex#L4-L30).
 
-6. **Protected routes are registered** in [ApproovApplicationWeb.Router](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/ApproovApplication.ex#L426-L455).
+6. **Protected routes are registered** in [ApproovApplicationWeb.Router](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application_web/router.ex#L21-L30), with enforcement wired via the Approov pipeline in [router.ex](https://github.com/approov/quickstart-elixir-phoenix-guardian-token-check/blob/refactor/elixir-phoenix-guardian/lib/approov_application_web/router.ex#L8-L10).
 
 ## Approov Token Verification Flow
 
